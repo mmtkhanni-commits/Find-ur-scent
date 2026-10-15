@@ -50,8 +50,8 @@ def get_real_image(url_string):
         if match:
             perfume_id = match.group(1)
             fragrantica_img = f"https://fimgs.net/mdimg/perfume/375x500.{perfume_id}.jpg"
-            # Proxy ကိုဖြတ်၍ ပုံကို ခေါ်ယူခြင်း
-            return f"http://192.168.100.136:5000/proxy-image?url={fragrantica_img}"
+            # 🌟 Render ၏ Live URL ကို အသုံးပြုခြင်း (Local IP အစား)
+            return f"https://find-ur-scent.onrender.com/proxy-image?url={fragrantica_img}"
     except:
         pass
     # Error တက်ပါက ပြသရန် ယာယီပုံ
@@ -98,11 +98,9 @@ def get_perfumes():
         "dg": "dolce gabbana"
     }
     
-    # query ထဲတွင် အတိုကောက်ပါပါက အရှည်ဖြင့် အစားထိုးမည်
     for abbr, full_name in abbreviations.items():
         query = re.sub(rf'\b{abbr}\b', full_name, query)
     
-    # စာလုံးတစ်လုံးချင်းစီကို ခွဲ၍ တိကျစွာ ရှာဖွေခြင်း (Smart Search)
     query_words = query.split()
     mask = pd.Series([True] * len(df), index=df.index)
     for word in query_words:
