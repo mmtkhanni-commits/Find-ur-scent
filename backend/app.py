@@ -1,129 +1,67 @@
+from flask import Flask, request, jsonify
 import pandas as pd
-from flask import Flask, request, jsonify, Response
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from flask_cors import CORS
-import requests
-import re
 
 app = Flask(__name__)
-CORS(app)
 
-# Dataset ကို ဖတ်ခြင်း
-try:
-    df = pd.read_csv('perfumes_dataset.csv', sep=';', encoding='latin-1', low_memory=False)
-except Exception as e:
-    print(f"Error loading CSV: {e}")
-    df = pd.DataFrame()
+# Dataset ကို ; ဖြင့် ခွဲ၍ ဖတ်ခြင်း (ဖိုင်နာမည် perfumes_dataset.csv အမှန်ဖြစ်ရမည်)
+df = pd.read_csv('perfumes_dataset.csv', sep=';',encoding='latin-1')
 
-if not df.empty:
-    df = df.fillna('')
-    df['id'] = range(1, len(df) + 1) 
+# အနံ့ဆိုင်ရာ Column များကို ပေါင်းစပ်ရန် ပြင်ဆင်ခြင်း (NaN များကို စာသားအလွတ်ဖြင့် အစားထိုးခြင်း)
+scent_columns = ['Top', 'Middle', 'Base', 'mainaccord1', 'mainaccord2', 'mainaccord3', 'mainaccord4', 'mainaccord5']
+for col in scent_columns:
+    if col in df.columns:
+        df[col] = df[col].fillna('')
 
-    # AI Recommendation အတွက် Text များ ပေါင်းစပ်ခြင်း
-    df['search_text'] = df['Top'].astype(str) + ' ' + df['Middle'].astype(str) + ' ' + df['Base'].astype(str) + ' ' + df['mainaccord1'].astype(str) + ' ' + df['mainaccord2'].astype(str)
-    
-    # 🌟 Smart Search အတွက် Brand နှင့် Name ကိုပေါင်းပြီး '-' များကို ဖယ်ရှားထားသော Column ဖန်တီးခြင်း
-    df['search_name'] = (df['Brand'].astype(str) + ' ' + df['Perfume'].astype(str)).str.replace('-', ' ').str.lower()
-    
-    vectorizer = TfidfVectorizer(stop_words='english')
-    tfidf_matrix = vectorizer.fit_transform(df['search_text'])
+# အနံ့အားလုံးကို စာကြောင်းတစ်ကြောင်းတည်းဖြစ်အောင် ပေါင်းခြင်း
+available_scent_cols = [col for col in scent_columns if col in df.columns]
+df['combined_scents'] = df[available_scent_cols].agg(' '.join, axis=1)
 
-# 🌟 Image Proxy Route (CORS လုံခြုံရေးကို ကျော်ဖြတ်ပြီး ပုံအစစ်ပြသရန်)
-@app.route('/proxy-image')
-def proxy_image():
-    img_url = request.args.get('url')
-    if not img_url:
-        return "No URL provided", 400
-    try:
-        # Fragrantica ဆာဗာမှ ပိတ်မထားစေရန် Browser အယောင်ဆောင်၍ ပုံကိုလှမ်းဆွဲခြင်း
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-        resp = requests.get(img_url, headers=headers)
-        return Response(resp.content, content_type=resp.headers.get('content-type', 'image/jpeg'))
-    except Exception as e:
-        return str(e), 500
+# TF-IDF နှင့် Cosine Similarity ကို တွက်ချက်ခြင်း (App စတင်ကတည်းက တစ်ခါတည်း တွက်ထားမည်)
+tfidf = TfidfVectorizer(stop_words='english')
+tfidf_matrix = tfidf.fit_transform(df['combined_scents'])
+cosine_sim = cosine_similarity(tfidf_matrix, tfidf_matrix)
 
-# URL ထဲမှ ID ကိုဆွဲထုတ်၍ ပုံအစစ် Link အဖြစ် ပြောင်းပေးသော Function
-def get_real_image(url_string):
-    try:
-        match = re.search(r'-(\d+)\.html', str(url_string))
-        if match:
-            perfume_id = match.group(1)
-            fragrantica_img = f"https://fimgs.net/mdimg/perfume/375x500.{perfume_id}.jpg"
-            # 🌟 Render ၏ Live URL ကို အသုံးပြုခြင်း (Local IP အစား)
-            return f"https://find-ur-scent.onrender.com/proxy-image?url={fragrantica_img}"
-    except:
-        pass
-    # Error တက်ပါက ပြသရန် ယာယီပုံ
-    return 'https://cdn-icons-png.flaticon.com/512/3050/3050221.png'
-
-# Flutter UI လိုအပ်သော Data Format အတိုင်း ပြင်ဆင်ပေးသည့် Function
-def format_results(dataframe):
-    results = []
-    for _, row in dataframe.iterrows():
-        top_notes = [n.strip() for n in str(row['Top']).split(',')] if row['Top'] else ['Unknown']
-        mid_notes = [n.strip() for n in str(row['Middle']).split(',')] if row['Middle'] else ['Unknown']
-        base_notes = [n.strip() for n in str(row['Base']).split(',')] if row['Base'] else ['Unknown']
-        
-        perfume_name = str(row['Perfume']).replace('-', ' ').title()
-        brand_name = str(row['Brand']).replace('-', ' ').title()
-
-        results.append({
-            'id': int(row['id']),
-            'name': perfume_name,
-            'brand': brand_name,
-            'image_url': get_real_image(row['url']), 
-            'price_tier': 'Standard',
-            'match_score': 95, 
-            'longevity': '8 hrs',
-            'top_notes': top_notes,
-            'middle_notes': mid_notes,
-            'base_notes': base_notes
-        })
-    return results
-
-@app.route('/perfumes', methods=['GET'])
-def get_perfumes():
-    query = request.args.get('q', '').lower().strip()
-    if not query:
-        return jsonify({'perfumes': format_results(df.head(20))})
-    
-    # 🌟 နာမည်ကျော် Brand အတိုကောက်များကို အရှည်သို့ အလိုအလျောက် ပြောင်းပေးခြင်း
-    abbreviations = {
-        "ysl": "yves saint laurent",
-        "jpg": "jean paul gaultier",
-        "ck": "calvin klein",
-        "ch": "carolina herrera",
-        "d&g": "dolce gabbana",
-        "dg": "dolce gabbana"
-    }
-    
-    for abbr, full_name in abbreviations.items():
-        query = re.sub(rf'\b{abbr}\b', full_name, query)
-    
-    query_words = query.split()
-    mask = pd.Series([True] * len(df), index=df.index)
-    for word in query_words:
-        mask &= df['search_name'].str.contains(word, regex=False)
-        
-    return jsonify({'perfumes': format_results(df[mask].head(20))})
-
-@app.route('/recommend', methods=['POST'])
+@app.route('/recommend', methods=['GET', 'POST'])
 def recommend():
-    data = request.json or {}
-    preferred_notes = data.get('preferred_notes', [])
-    
-    if not preferred_notes:
-        return jsonify({'recommendations': format_results(df.head(5))})
+    # Browser (GET) နှင့် Flutter (POST) နှစ်မျိုးစလုံးကို လက်ခံရန်
+    if request.method == 'POST':
+        # Flutter မှ JSON Data ပို့သောအခါ
+        data = request.get_json(silent=True)
+        perfume_name = data.get('name') if data else None
+    else:
+        # Browser မှ ?name=... ဖြင့် ခေါ်သောအခါ
+        perfume_name = request.args.get('name')
         
-    user_input = " ".join(preferred_notes)
-    user_vec = vectorizer.transform([user_input])
-    similarities = cosine_similarity(user_vec, tfidf_matrix).flatten()
+    if not perfume_name:
+        return jsonify({"error": "Please provide a perfume name."}), 400
+        
+    # ရေမွှေးနာမည်ကို Dataset ထဲတွင် ရှာခြင်း (အကြီး/အသေး ဂရုမစိုက်ဘဲ ရှာမည်)
+    idx_list = df.index[df['Perfume'].str.lower() == perfume_name.lower()].tolist()
     
-    top_indices = similarities.argsort()[-5:][::-1]
-    return jsonify({'recommendations': format_results(df.iloc[top_indices])})
+    if not idx_list:
+        return jsonify({"error": f"Perfume '{perfume_name}' not found in dataset."}), 404
+        
+    idx = idx_list[0]
+    
+    # ယခုရေမွှေးနှင့် အခြားရေမွှေးများ၏ တူညီမှုရာခိုင်နှုန်းများကို ယူခြင်း
+    sim_scores = list(enumerate(cosine_sim[idx]))
+    
+    # အများဆုံးတူညီသော ရေမွှေးများကို အစဉ်လိုက်စီခြင်း
+    sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
+    
+    # နံပါတ် 1 မှ 5 အထိ (အနံ့အဆင်တူဆုံး ၅ မျိုး) ကို ယူခြင်း (၀ က မိမိကိုယ်တိုင်ဖြစ်နေ၍ ချန်လှပ်ထားသည်)
+    sim_scores = sim_scores[1:6] 
+    
+    perfume_indices = [i[0] for i in sim_scores]
+    
+    # ရလဒ်များကို JSON အဖြစ် ပြန်ပို့ပေးခြင်း
+    return_cols = ['Perfume', 'Brand'] + [c for c in ['Top', 'Middle', 'Base'] if c in df.columns]
+    recommendations = df.iloc[perfume_indices][return_cols].to_dict(orient='records')
+    
+    return jsonify({"recommendations": recommendations})
 
 if __name__ == '__main__':
-    if not df.empty:
-        print(f"\n✅ အောင်မြင်ပါသည်။ ရေမွှေးပေါင်း {len(df):,} မျိုးကို ချိတ်ဆက်ပြီးပါပြီ!\n")
+    # 0.0.0.0 ကိုသုံးထားသဖြင့် Local Network အတွင်းရှိ ဖုန်းများမှပါ ဝင်ရောက်စမ်းသပ်နိုင်မည်
     app.run(host='0.0.0.0', port=5000, debug=True)
