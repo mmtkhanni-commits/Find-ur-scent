@@ -9,7 +9,7 @@ void main() {
 }
 
 class ApiConfig {
-  static const String baseUrl = 'http://192.168.100.136:5000';
+  static const String baseUrl = 'https://find-ur-scent.onrender.com';
 }
 
 class FindUrScentApp extends StatelessWidget {
