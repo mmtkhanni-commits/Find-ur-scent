@@ -1,4 +1,3 @@
-import 'recommendation_screen.dart';
 import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -121,9 +120,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         onLogSotd: _logScentOfTheDay,
         isSaved: _isSaved,
       ),
-      // --- အသစ်ထည့်သွင်းထားသော AI Finder စာမျက်နှာ ---
-      RecommendationScreen(),
-      // ------------------------------------------
       WardrobeTab(
         wardrobe: savedWardrobe,
         sotdLogs: sotdLogs,
@@ -159,13 +155,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             selectedIcon: Icon(Icons.manage_search, color: Color(0xFFD4AF37)),
             label: 'Explore',
           ),
-          // --- အသစ်ထည့်သွင်းထားသော AI Finder Tab ---
-          const NavigationDestination(
-            icon: Icon(Icons.auto_fix_high_outlined),
-            selectedIcon: Icon(Icons.auto_fix_high, color: Color(0xFFD4AF37)),
-            label: 'AI Finder',
-          ),
-          // --------------------------------------
           NavigationDestination(
             icon: Badge(
               isLabelVisible: savedWardrobe.isNotEmpty,
@@ -499,11 +488,11 @@ class PerfumeGlassCard extends StatelessWidget {
                   ],
                 ),
                 const Divider(height: 22, color: Colors.white24),
-                _buildNoteRow('Top Notes:', perfume['top_notes']),
+                _buildNoteRow('Top Notes:', perfume['top_notes'] ?? []),
                 const SizedBox(height: 4),
-                _buildNoteRow('Heart Notes:', perfume['middle_notes']),
+                _buildNoteRow('Heart Notes:', perfume['middle_notes'] ?? []),
                 const SizedBox(height: 4),
-                _buildNoteRow('Base Notes:', perfume['base_notes']),
+                _buildNoteRow('Base Notes:', perfume['base_notes'] ?? []),
                 const SizedBox(height: 12),
                 Align(
                   alignment: Alignment.centerRight,
@@ -520,8 +509,15 @@ class PerfumeGlassCard extends StatelessWidget {
       ),
     );
   }
-  Widget _buildNoteRow(String label, List<dynamic> notes) => Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [SizedBox(width: 85, child: Text(label, style: const TextStyle(color: Colors.white60, fontSize: 12))), Expanded(child: Text(notes.join(' • '), style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)))],
-  );
+  
+  Widget _buildNoteRow(String label, List<dynamic> notes) {
+      if (notes.isEmpty) return const SizedBox.shrink();
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(width: 85, child: Text(label, style: const TextStyle(color: Colors.white60, fontSize: 12))), 
+          Expanded(child: Text(notes.join(' • '), style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)))
+        ],
+      );
+  }
 }
