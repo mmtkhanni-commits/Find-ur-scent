@@ -1,3 +1,4 @@
+import 'recommendation_screen.dart';
 import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -120,6 +121,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         onLogSotd: _logScentOfTheDay,
         isSaved: _isSaved,
       ),
+      // --- အသစ်ထည့်သွင်းထားသော AI Finder စာမျက်နှာ ---
+      RecommendationScreen(),
+      // ------------------------------------------
       WardrobeTab(
         wardrobe: savedWardrobe,
         sotdLogs: sotdLogs,
@@ -155,6 +159,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             selectedIcon: Icon(Icons.manage_search, color: Color(0xFFD4AF37)),
             label: 'Explore',
           ),
+          // --- အသစ်ထည့်သွင်းထားသော AI Finder Tab ---
+          const NavigationDestination(
+            icon: Icon(Icons.auto_fix_high_outlined),
+            selectedIcon: Icon(Icons.auto_fix_high, color: Color(0xFFD4AF37)),
+            label: 'AI Finder',
+          ),
+          // --------------------------------------
           NavigationDestination(
             icon: Badge(
               isLabelVisible: savedWardrobe.isNotEmpty,
